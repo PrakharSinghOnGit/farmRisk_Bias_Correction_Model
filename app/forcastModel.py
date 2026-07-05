@@ -555,6 +555,64 @@ def _parse_daily(data):
     })
 
 
+def parse_provided_forecast(forecast_data):
+    """
+    Parses raw forecast data passed from frontend/API caller into a pandas DataFrame.
+    Supports:
+      1. Dict with "daily" key: {"daily": {"time": [...], "temperature_2m_max": [...]}}
+      2. Dict of arrays directly: {"time": [...], "temperature_2m_max": [...]}
+      3. List of dicts (records): [{"time": "2026-07-06", "temperature_2m_max": 31.5}]
+    """
+    if isinstance(forecast_data, dict):
+        if "daily" in forecast_data:
+            d = forecast_data["daily"]
+        else:
+            d = forecast_data
+        
+        # Check if arrays are present
+        time_arr = d.get("time") or d.get("date")
+        tmax_arr = d.get("temperature_2m_max") or d.get("tmax")
+        tmin_arr = d.get("temperature_2m_min") or d.get("tmin")
+        pcp_arr = d.get("precipitation_sum") or d.get("pcp")
+        
+        if not time_arr:
+            raise ValueError("Provided forecast_data must contain date/time information.")
+        
+        df = pd.DataFrame({
+            "date": pd.to_datetime(time_arr),
+            "tmax": pd.to_numeric(pd.Series(tmax_arr), errors="coerce") if tmax_arr is not None else np.nan,
+            "tmin": pd.to_numeric(pd.Series(tmin_arr), errors="coerce") if tmin_arr is not None else np.nan,
+            "pcp":  pd.to_numeric(pd.Series(pcp_arr), errors="coerce") if pcp_arr is not None else np.nan,
+        })
+    elif isinstance(forecast_data, list):
+        # List of records
+        df = pd.DataFrame(forecast_data)
+        rename_map = {}
+        for col in df.columns:
+            col_lower = col.lower()
+            if col_lower in ("time", "date"):
+                rename_map[col] = "date"
+            elif col_lower in ("temperature_2m_max", "tmax"):
+                rename_map[col] = "tmax"
+            elif col_lower in ("temperature_2m_min", "tmin"):
+                rename_map[col] = "tmin"
+            elif col_lower in ("precipitation_sum", "pcp"):
+                rename_map[col] = "pcp"
+        df = df.rename(columns=rename_map)
+        if "date" not in df.columns:
+            raise ValueError("Provided forecast_data records must contain date or time field.")
+        df["date"] = pd.to_datetime(df["date"])
+        for col in ["tmax", "tmin", "pcp"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+            else:
+                df[col] = np.nan
+    else:
+        raise TypeError("forecast_data must be a dictionary or a list of records.")
+    
+    return df
+
+
 def fetch_forecast(lat, lon, apikey, past_days=PAST_BUFFER_DAYS):
     """
     Returns (dataframe, source) where source is 'paid' or 'free'.
@@ -678,7 +736,7 @@ def predict_idw(df_var, var_key, trained_models):
 def get_village_forecast(lat, lon, *, verbose=False,
                          era5_dir=ERA5_DIR, forecast_path=FORECAST_PARQUET,
                          imd_dir=IMD_DIR, elev_path=ELEV_PARQUET,
-                         apikey=OPEN_METEO_API_KEY):
+                         apikey=OPEN_METEO_API_KEY, forecast_data=None):
     """
     Compute a bias-corrected 16-day forecast for a single lat/lon.
 
@@ -689,7 +747,7 @@ def get_village_forecast(lat, lon, *, verbose=False,
           "success": True,
           "location": {"lat": .., "lon": .., "elevation_m": ..},
           "grids_used": [{"lat":.., "lon":.., "distance_deg":.., "cached": bool}, ...],
-          "forecast_source": "paid" | "free",
+          "forecast_source": "paid" | "free" | "provided",
           "forecast": [
             {"date": "YYYY-MM-DD",
              "tmax_raw": .., "tmax_corrected": ..,
@@ -730,7 +788,15 @@ def get_village_forecast(lat, lon, *, verbose=False,
         elevation = fetch_elevation(lat, lon)
         _log(verbose, f"Elevation: {elevation}")
 
-        forecast, forecast_source = fetch_forecast(lat, lon, apikey)
+        if forecast_data is not None:
+            forecast = parse_provided_forecast(forecast_data)
+            forecast = forecast.drop_duplicates(subset=["date"], keep="last")
+            forecast = forecast.sort_values("date").reset_index(drop=True)
+            forecast["is_forecast"] = (forecast["date"] >= pd.Timestamp(date.today())).astype(int)
+            forecast_source = "provided"
+        else:
+            forecast, forecast_source = fetch_forecast(lat, lon, apikey)
+
         forecast = add_features(forecast, elevation)
 
         results = forecast[["date", "is_forecast"]].copy()

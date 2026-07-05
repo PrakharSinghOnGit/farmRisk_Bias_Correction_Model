@@ -24,6 +24,7 @@ RUN pip install --no-cache-dir --user -r /code/requirements.txt
 
 # Copy the application code, datasets, and cache folders
 COPY --chown=user:user app /code/app
+# COPY --chown=user:user data /code/data
 COPY --chown=user:user models /code/models
 
 # Expose port 7860 (default port for Hugging Face Spaces)

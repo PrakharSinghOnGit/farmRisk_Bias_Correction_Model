@@ -54,6 +54,9 @@ class ForecastRequest(BaseModel):
         None, description="Stable village id, used to key the soil-moisture "
                           "checkpoint. Falls back to lat/lon if omitted."
     )
+    forecast_data: Optional[Any] = Field(
+        None, description="Raw forecast data from Open-Meteo API. If provided, bypasses Open-Meteo API fetching."
+    )
 
 
 class CacheClearRequest(BaseModel):
@@ -207,7 +210,7 @@ def _cache_set(key: str, value: dict[str, Any]) -> None:
 # Core pipeline
 # ==============================================================================
 
-def _run_forecast(lat: float, lon: float) -> dict[str, Any]:
+def _run_forecast(lat: float, lon: float, forecast_data: Optional[Any] = None) -> dict[str, Any]:
     missing = missing_files()
     if missing:
         raise RuntimeError("Missing required model files: " + ", ".join(missing))
@@ -215,6 +218,8 @@ def _run_forecast(lat: float, lon: float) -> dict[str, Any]:
     kwargs = {}
     if OPEN_METEO_API_KEY:
         kwargs["apikey"] = OPEN_METEO_API_KEY
+    if forecast_data is not None:
+        kwargs["forecast_data"] = forecast_data
 
     res = get_village_forecast(lat, lon, **kwargs)
     if not res.get("success", False):
@@ -223,11 +228,11 @@ def _run_forecast(lat: float, lon: float) -> dict[str, Any]:
     return res
 
 
-def _run_village_report(lat: float, lon: float, village_id: Optional[int]) -> dict[str, Any]:
+def _run_village_report(lat: float, lon: float, village_id: Optional[int], forecast_data: Optional[Any] = None) -> dict[str, Any]:
     """The full pipeline: forecast, then soil moisture derived from it."""
     started = time.time()
 
-    forecast = _run_forecast(lat, lon)
+    forecast = _run_forecast(lat, lon, forecast_data=forecast_data)
     forecast["runtime_seconds"] = round(time.time() - started, 4)
 
     sm_started = time.time()
@@ -247,10 +252,17 @@ def _run_village_report(lat: float, lon: float, village_id: Optional[int]) -> di
     }
 
 
-def get_village_report_cached(lat: float, lon: float, village_id: Optional[int]) -> dict[str, Any]:
+def get_village_report_cached(lat: float, lon: float, village_id: Optional[int], forecast_data: Optional[Any] = None) -> dict[str, Any]:
     _refresh_daily_cache()
-    key = _point_cache_key(lat, lon, village_id)
+    
+    # If custom forecast data is passed, bypass caching to ensure the fresh data is processed
+    if forecast_data is not None:
+        response = _run_village_report(lat, lon, village_id, forecast_data=forecast_data)
+        response["cache_key"] = None
+        update_avg_runtime(response["total_runtime_seconds"])
+        return response
 
+    key = _point_cache_key(lat, lon, village_id)
     cached = _cache_get(key)
     if cached is not None:
         cached["cache_hit"] = True
@@ -334,7 +346,7 @@ async def village_report(payload: ForecastRequest) -> dict[str, Any]:
     with pipeline_lock:
         try:
             return await run_in_threadpool(
-                get_village_report_cached, payload.lat, payload.lon, payload.village_id,
+                get_village_report_cached, payload.lat, payload.lon, payload.village_id, payload.forecast_data,
             )
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -346,7 +358,7 @@ async def forecast_post(payload: ForecastRequest) -> dict[str, Any]:
     started = time.time()
     with pipeline_lock:
         try:
-            res = await run_in_threadpool(_run_forecast, payload.lat, payload.lon)
+            res = await run_in_threadpool(_run_forecast, payload.lat, payload.lon, payload.forecast_data)
             elapsed = round(time.time() - started, 4)
             update_avg_runtime(elapsed)
             return res

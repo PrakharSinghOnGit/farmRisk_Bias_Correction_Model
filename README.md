@@ -70,18 +70,30 @@ $$
 Primary API entry point. Takes coordinates and returns the bias-corrected weather forecast alongside the derived soil moisture forecast.
 
 - **Request Body:**
+
   ```json
   {
     "lat": 22.3,
     "lon": 72.6,
-    "village_id": 12345
+    "village_id": 12345,
+    "forecast_data": {
+      "daily": {
+        "time": ["2026-07-06", "2026-07-07", "2026-07-08"],
+        "temperature_2m_max": [31.5, 32.0, 31.8],
+        "temperature_2m_min": [24.1, 23.9, 24.2],
+        "precipitation_sum": [0.0, 1.2, 0.5]
+      }
+    }
   }
   ```
+
+  _Note: `forecast_data` is optional. If provided, the backend will parse it directly and bypass any external Open-Meteo API requests. It supports both the Open-Meteo dictionary structure (with the `daily` key) and a flat array or list of daily record dictionaries._
+
 - **Response Output:** Returns bias-corrected weather forecast datasets, derived daily soil moisture storage ($w$), soil moisture percentiles, and runtime performance metrics.
 
 ### POST `/forecast`
 
-Isolated debugging endpoint returning only the bias-corrected weather forecast (no soil moisture calculations).
+Isolated debugging endpoint returning only the bias-corrected weather forecast (no soil moisture calculations). It accepts the same request payload (including `forecast_data`).
 
 ### GET `/health`
 
