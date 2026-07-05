@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# OS/System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment variables / local configuration
+.env
+.python-version
+
+# Model Cache and Checkpoints - ignore cache contents but keep directories
+models/models_cache_pergrid/**/*
+!models/models_cache_pergrid/**/.gitkeep
+models/soil_moisture_checkpoints/**/*
+!models/soil_moisture_checkpoints/**/.gitkeep
+
+data/
