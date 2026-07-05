@@ -127,6 +127,7 @@ def update_avg_runtime(x: float) -> None:
                     "count": new_count,
                     "last_runtime": round(x, 6)
                 }, f, indent=2)
+                print(f"Average={new_average:.6f}, count={new_count}, last_runtime={x:.6f}")
         except Exception as e:
             logger.error("Failed to write avgRunTime.json: %s", e)
 
