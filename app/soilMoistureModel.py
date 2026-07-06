@@ -704,22 +704,27 @@ def compute_village_soil_moisture(lat, lon, forecast_data, *, village_id=None,
 
         # Only process forecast_data rows strictly after the checkpoint's
         # current last_date (idempotent against double-calls / retries).
-        new_forcing = new_forcing[new_forcing.index > checkpoint["last_date"]]
+        # Save the historical checkpoint to disk before we run the forecast days on it,
+        # so that subsequent calls continue to begin from the end of observed historical data.
+        _save_checkpoint(ckpt_path, checkpoint)
+
+        import copy
+        forecast_checkpoint = copy.deepcopy(checkpoint)
+
+        new_forcing = new_forcing[new_forcing.index > forecast_checkpoint["last_date"]]
         if new_forcing.empty and not gap_rows and not cold_start_happened:
             rows = []
         else:
-            checkpoint, rows = _run_days(checkpoint, new_forcing, params, lat) \
-                if not new_forcing.empty else (checkpoint, [])
+            forecast_checkpoint, rows = _run_days(forecast_checkpoint, new_forcing, params, lat) \
+                if not new_forcing.empty else (forecast_checkpoint, [])
             rows = gap_rows + rows
-
-        _save_checkpoint(ckpt_path, checkpoint)
 
         return {
             "success": True,
             "location": {"lat": lat, "lon": lon},
             "cold_start": cold_start_happened,
             "days_computed": len(rows),
-            "checkpoint_last_date": checkpoint["last_date"].strftime("%Y-%m-%d"),
+            "checkpoint_last_date": forecast_checkpoint["last_date"].strftime("%Y-%m-%d"),
             "soil_moisture": rows,
         }
 
