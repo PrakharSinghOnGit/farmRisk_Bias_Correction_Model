@@ -105,6 +105,7 @@ SPINUP_YEARS = 1
 DOY_WINDOW = 15                 # +/- days pooled for the climatological percentile
 DEFAULT_W0_FRAC = 0.5           # initial storage guess, only used on first-ever cold start
 CALIB_PARAMS = ["WMAX", "Bm", "alpha_surf", "alpha_base", "melt_factor"]
+HISTORY_DAYS = 30               # number of past observation days to return alongside forecast
 
 SNOW_T_SNOW = 0.0                # <= this mean-T (degC): precip falls as snow
 SNOW_T_MELT = 0.0                # >  this mean-T: melting occurs
@@ -493,14 +494,17 @@ def _cold_start(lat, lon, params, up_to_date, verbose=False):
     snowpack = 0.0
     month_stats = _new_month_stats()
     w_track = []
+    # Capture the last HISTORY_DAYS rows of output for the rolling history buffer
+    recent_rows = []
 
     dates = forcing.index
     pcp_v = forcing["pcp"].values
     tmean_v = tmean.values
 
     for k in range(len(dates)):
-        month = dates[k].month
-        doy = dates[k].dayofyear
+        d = dates[k]
+        month = d.month
+        doy = d.dayofyear
         _update_month_stats(month_stats, month, tmean_v[k])
         I, a = _thornthwaite_I_a(month_stats)
         pe = _thornthwaite_pe_day(tmean_v[k], doy, lat, I, a)
@@ -510,6 +514,25 @@ def _cold_start(lat, lon, params, up_to_date, verbose=False):
             params["WMAX"], params, params["melt_factor"], snow=True)
         w_track.append(w)
 
+        # Build row dicts for the trailing HISTORY_DAYS window
+        recent_rows.append({
+            "date": d.strftime("%Y-%m-%d"),
+            "P_obs": round(float(pcp_v[k]), 3),
+            "Tmean": round(float(tmean_v[k]), 3),
+            "PE": round(float(pe), 3),
+            "P_eff": round(float(peff), 3),
+            "snowpack": round(float(snowpack), 3),
+            "w": round(float(w), 3),
+            "E": round(float(E), 3),
+            "R": round(float(R), 3),
+            "G": round(float(G), 3),
+            "w_frac": round(float(w) / params["WMAX"], 4),
+            "sm_percentile": None,  # pools not finalized yet during cold start loop
+            "is_forecast": 0,
+        })
+        if len(recent_rows) > HISTORY_DAYS:
+            recent_rows.pop(0)
+
     w_series = pd.Series(w_track, index=dates)
 
     # Drop the spin-up period from the climatology pool (matches the original,
@@ -517,6 +540,14 @@ def _cold_start(lat, lon, params, up_to_date, verbose=False):
     # the *state* (w, snowpack) as-is -- that's the true physical state.
     cutoff = dates[0] + pd.DateOffset(years=SPINUP_YEARS)
     pools = _build_doy_pools(w_series[w_series.index >= cutoff])
+
+    # Now retroactively fill in sm_percentile for the recent_rows using the
+    # finalized pools and the w values we tracked.
+    for row in recent_rows:
+        row_date = pd.Timestamp(row["date"])
+        doy = row_date.dayofyear
+        pct = _percentile_from_pool(pools, doy, row["w"])
+        row["sm_percentile"] = None if math.isnan(pct) else round(float(pct), 2)
 
     checkpoint = {
         "last_date": dates[-1],
@@ -527,6 +558,7 @@ def _cold_start(lat, lon, params, up_to_date, verbose=False):
         "params": dict(params),
         "lat": lat, "lon": lon,
         "created_at": time.time(),
+        "recent_history": recent_rows,
     }
     return checkpoint
 
@@ -541,11 +573,15 @@ def _run_days(checkpoint, forcing_df, params, lat, tag_is_forecast=None):
     Advance the bucket by exactly the days in forcing_df (must be the days
     immediately after checkpoint['last_date'], strictly increasing).
     Returns (updated_checkpoint, list_of_row_dicts).
+
+    Observed (is_forecast == 0) rows are also appended to the checkpoint's
+    recent_history rolling buffer (capped at HISTORY_DAYS entries).
     """
     w = checkpoint["w"]
     snowpack = checkpoint["snowpack"]
     month_stats = checkpoint["month_stats"]
     pools = checkpoint["doy_pools"]
+    recent_history = checkpoint.get("recent_history", [])
 
     rows = []
     dates = forcing_df.index
@@ -570,7 +606,8 @@ def _run_days(checkpoint, forcing_df, params, lat, tag_is_forecast=None):
         _insert_into_doy_pools(pools, doy, w)
         pct = _percentile_from_pool(pools, doy, w)
 
-        rows.append({
+        row_is_fc = int(is_fc[k]) if is_fc is not None else tag_is_forecast
+        row = {
             "date": d.strftime("%Y-%m-%d"),
             "P_obs": None if pd.isna(pcp_v[k]) else round(float(pcp_v[k]), 3),
             "Tmean": round(float(tmean_k), 3),
@@ -583,12 +620,20 @@ def _run_days(checkpoint, forcing_df, params, lat, tag_is_forecast=None):
             "G": round(float(G), 3),
             "w_frac": round(float(w) / params["WMAX"], 4),
             "sm_percentile": None if math.isnan(pct) else round(float(pct), 2),
-            "is_forecast": int(is_fc[k]) if is_fc is not None else tag_is_forecast,
-        })
+            "is_forecast": row_is_fc,
+        }
+        rows.append(row)
+
+        # Only observed (non-forecast) rows go into the persisted history
+        if row_is_fc == 0 or row_is_fc is None:
+            recent_history.append(row)
+            if len(recent_history) > HISTORY_DAYS:
+                recent_history.pop(0)
 
     checkpoint["last_date"] = dates[-1]
     checkpoint["w"] = float(w)
     checkpoint["snowpack"] = float(snowpack)
+    checkpoint["recent_history"] = recent_history
     return checkpoint, rows
 
 
@@ -684,8 +729,10 @@ def compute_village_soil_moisture(lat, lon, forecast_data, *, village_id=None,
             # Params may have changed since this checkpoint was built (e.g. a
             # recalibration run) -- if so, force a rebuild rather than silently
             # mixing old-parameter state with new-parameter dynamics.
-            if checkpoint.get("params") != params:
-                _log(verbose, "    calibration params changed -> rebuilding checkpoint")
+            # Also rebuild if the checkpoint predates the recent_history feature.
+            if checkpoint.get("params") != params or "recent_history" not in checkpoint:
+                reason = "calibration params changed" if checkpoint.get("params") != params else "checkpoint missing recent_history"
+                _log(verbose, f"    {reason} -> rebuilding checkpoint")
                 splice_date = new_forcing.index.min()
                 checkpoint = _cold_start(lat, lon, params, splice_date - pd.Timedelta(days=1),
                                          verbose=verbose)
@@ -708,24 +755,32 @@ def compute_village_soil_moisture(lat, lon, forecast_data, *, village_id=None,
         # so that subsequent calls continue to begin from the end of observed historical data.
         _save_checkpoint(ckpt_path, checkpoint)
 
+        # Retrieve the stored past-observation rows before we run forecast days
+        past_history = list(checkpoint.get("recent_history", []))
+
         import copy
         forecast_checkpoint = copy.deepcopy(checkpoint)
 
         new_forcing = new_forcing[new_forcing.index > forecast_checkpoint["last_date"]]
         if new_forcing.empty and not gap_rows and not cold_start_happened:
-            rows = []
+            forecast_rows = []
         else:
-            forecast_checkpoint, rows = _run_days(forecast_checkpoint, new_forcing, params, lat) \
+            forecast_checkpoint, forecast_rows = _run_days(forecast_checkpoint, new_forcing, params, lat) \
                 if not new_forcing.empty else (forecast_checkpoint, [])
-            rows = gap_rows + rows
+            forecast_rows = gap_rows + forecast_rows
+
+        # Combine: past observed history + current forecast/gap rows
+        all_rows = past_history + forecast_rows
 
         return {
             "success": True,
             "location": {"lat": lat, "lon": lon},
             "cold_start": cold_start_happened,
-            "days_computed": len(rows),
+            "history_days": len(past_history),
+            "forecast_days": len(forecast_rows),
+            "days_computed": len(all_rows),
             "checkpoint_last_date": forecast_checkpoint["last_date"].strftime("%Y-%m-%d"),
-            "soil_moisture": rows,
+            "soil_moisture": all_rows,
         }
 
     except SoilMoistureError as e:
