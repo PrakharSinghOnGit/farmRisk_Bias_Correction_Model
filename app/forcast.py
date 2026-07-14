@@ -189,7 +189,7 @@ def _read_parquet_grids_fallback(path, lat_lo, lat_hi, lon_lo, lon_hi, columns):
     """Chunked fallback when pyarrow dataset filtering is unavailable."""
     try:
         import pyarrow.parquet as pq
-        pf = pq.ParquetFile(path)
+        pf = pq.ParquetFile(path, memory_map=False)
         frames = []
         for batch in pf.iter_batches(batch_size=1_000_000, columns=columns):
             chunk = batch.to_pandas()
@@ -200,7 +200,7 @@ def _read_parquet_grids_fallback(path, lat_lo, lat_hi, lon_lo, lon_hi, columns):
         return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     except Exception:
         # Last resort: full pandas read (heavy, but correct)
-        df = pd.read_parquet(path, columns=columns)
+        df = pd.read_parquet(path, columns=columns, memory_map=False)
         return df[(df["lat"] >= lat_lo) & (df["lat"] <= lat_hi) &
                   (df["lon"] >= lon_lo) & (df["lon"] <= lon_hi)]
 
@@ -224,7 +224,7 @@ def build_grid_training(era5_dir, forecast_path, imd_dir, elev_path,
     # -- Elevation (small file, read whole then filter) --
     elev_dict = {}
     if os.path.isfile(elev_path):
-        elev_df = pd.read_parquet(elev_path)
+        elev_df = pd.read_parquet(elev_path, memory_map=False)
         elev_dict = dict(zip(
             zip(elev_df["lat"].round(4), elev_df["lon"].round(4)),
             elev_df["elevation"],

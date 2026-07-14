@@ -246,7 +246,7 @@ def load_imd_var(var, grid_points, end):
     lats = sorted({round(gp[0], 3) for gp in grid_points})
     lons = sorted({round(gp[1], 3) for gp in grid_points})
     filt = [("lat", "in", lats), ("lon", "in", lons)]
-    df = pd.read_parquet(IMD_PARQUET[var], filters=filt)
+    df = pd.read_parquet(IMD_PARQUET[var], filters=filt, memory_map=False)
     df["date"] = pd.to_datetime(df["date"])
     df = df[df["date"] <= end]
     return df

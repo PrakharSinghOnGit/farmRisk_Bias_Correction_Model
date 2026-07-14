@@ -132,7 +132,7 @@ def load_elevation_file(path):
     if not os.path.exists(path):
         sys.exit(f"ERROR: elevation file not found: {path}")
     if path.endswith(".parquet"):
-        df = pd.read_parquet(path)
+        df = pd.read_parquet(path, memory_map=False)
         lats = df["lat"].to_numpy()
         lons = df["lon"].to_numpy()
         elevs = df["elevation"].to_numpy()
