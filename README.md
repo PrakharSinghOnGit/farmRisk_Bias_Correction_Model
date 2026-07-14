@@ -28,10 +28,11 @@ Returns the last 365 daily records of simulated soil moisture, precipitation, ev
 - **Query Parameters**:
   - `lat` (float, required): Latitude of target location.
   - `lon` (float, required): Longitude of target location.
+  - `crop` (string, optional): Crop type for FAO-56 Kc application.
   - `daysbefore` (int, optional): Number of days before today for deficit-refill irrigation.
 - **Example Query**:
   ```bash
-  curl "https://<your-space-url>/moisture?lat=28.6139&lon=77.2090"
+  curl "https://<your-space-url>/moisture?lat=28.6139&lon=77.2090&crop=maize&daysbefore=7"
   ```
 
 #### 2. Bias-Corrected Weather Forecast
@@ -58,3 +59,69 @@ Returns the execution count, last run duration, and rolling average duration for
   ```bash
   curl "https://<your-space-url>/stats"
   ```
+
+#### 4. System and Data Health
+
+Checks environment details, directory permissions, and validates that all required data files (elevation, forecast history, and IMD observation parquets) are present and readable on the filesystem.
+
+- **URL**: `/health`
+- **Method**: `GET`
+- **Example Query**:
+  ```bash
+  curl "https://<your-space-url>/health"
+  ```
+
+---
+
+## Dataset & Git LFS Setup (GitHub)
+
+The `data/` directory contains large model and observation parquet datasets which exceed GitHub's standard file size limits. To handle this, the repository uses **Git LFS (Large File Storage)** on GitHub.
+
+The parquet files inside `data/` are tracked using Git LFS (configured in `.gitattributes`).
+
+### How to Clone and Download the Data (with Git LFS)
+
+When cloning this repository, you must have Git LFS installed on your system to download the actual dataset files instead of pointers.
+
+1. **Install Git LFS** (if not already installed):
+   - **macOS (Homebrew)**: `brew install git-lfs`
+   - **Debian/Ubuntu**: `sudo apt-get install git-lfs`
+   - **Windows**: Download from [git-lfs.github.com](https://git-lfs.github.com/)
+
+2. **Initialize Git LFS**:
+
+   ```bash
+   git lfs install
+   ```
+
+3. **Clone the Repository**:
+
+   ```bash
+   git clone https://github.com/farmrisk-in/farmrisk-models
+   ```
+
+   If you have already cloned the repository and see small pointer files in `data/`, you can pull the actual files by running:
+
+   ```bash
+   git lfs pull
+   ```
+
+### Data Directory Structure
+
+The structure of the `data/` directory must be set up as follows:
+
+```text
+data/
+├── grid_elevation.parquet
+├── om_forecast_all.parquet
+├── master_calibration_1D.csv
+├── crop_calendar_parsed.csv
+├── IMD_parquets/
+│   ├── imd_tmax_daily.parquet
+│   ├── imd_tmin_daily.parquet
+│   └── imd_pcp_daily.parquet
+└── training_data/
+    ├── training_pcp_daily.parquet
+    ├── training_tmax_daily.parquet
+    └── training_tmin_daily.parquet
+```

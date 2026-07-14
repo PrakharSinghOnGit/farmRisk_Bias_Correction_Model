@@ -1,0 +1,36 @@
+name: Sync to Hugging Face Hub
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        # We do not pull LFS files since we exclude the data folder from the HF sync anyway.
+        # This keeps the action execution extremely fast.
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Hugging Face Hub CLI
+        run: pip install -U huggingface_hub
+
+      - name: Sync to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Replace <HF_USERNAME>/<HF_SPACE_NAME> with your actual Hugging Face Space repo ID
+          # e.g., huggingface-cli upload prakharsingh/farmrisk-model . --repo-type=space ...
+          # https://huggingface.co/spaces/ShaanNeedsHugs/farmRisk
+          huggingface-cli upload \
+            ShaanNeedsHugs/farmRisk \
+            . \
+            --repo-type=space \
+            --ignore-patterns "data/*" "training_data/*" ".git/*" ".github/*" ".venv/*" "*.pyc" "__pycache__/*"

@@ -10,7 +10,6 @@ wheels/
 .venv
 
 
-data
 out
 *.DS_Store
 stats.json
@@ -44,5 +43,3 @@ models/models_cache_pergrid/**/*
 !models/models_cache_pergrid/**/.gitkeep
 models/soil_moisture_checkpoints/**/*
 !models/soil_moisture_checkpoints/**/.gitkeep
-
-data/
