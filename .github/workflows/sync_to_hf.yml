@@ -14,30 +14,24 @@ jobs:
         # We do not pull LFS files since we exclude the data folder from the HF sync anyway.
         # This keeps the action execution extremely fast.
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Hugging Face Hub CLI
-        run: pip install -U "huggingface_hub[cli]"
-
-      - name: Sync to Hugging Face Space
+      - name: Push to Hugging Face Space via Git
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Use the new hf command to upload to the Hugging Face Space
-          hf upload \
-            ShaanNeedsHugs/farmRisk \
-            . \
-            . \
-            --repo-type space \
-            --exclude "data/*" \
-            --exclude "training_data/*" \
-            --exclude ".git/*" \
-            --exclude ".github/*" \
-            --exclude ".venv/*" \
-            --exclude "*.pyc" \
-            --exclude "__pycache__/*"
+          # Clean up folders/files we don't want to push
+          rm -rf data training_data .git .github .gitattributes .venv
+          
+          # Initialize a fresh git repository to push a clean snapshot of code
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b main
+          git add .
+          git commit -m "Deploy to Hugging Face Space"
+          
+          # Push to the existing Space repository using the HF token for authentication
+          git remote add hf https://ShaanNeedsHugs:${HF_TOKEN}@huggingface.co/spaces/ShaanNeedsHugs/farmRisk
+          git push -f hf main
+
 
 

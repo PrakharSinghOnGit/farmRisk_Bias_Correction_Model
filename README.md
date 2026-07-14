@@ -144,7 +144,8 @@ Instead, we use a GitHub Actions workflow that automatically syncs code modifica
 2. **How the Sync Workflow Works**:
    - The workflow ([.github/workflows/sync_to_hf.yml](file:///.github/workflows/sync_to_hf.yml)) runs on every push to the `main` branch.
    - It performs a standard Git checkout **without** fetching Git LFS files (saving runner bandwidth and time).
-   - It uses `hf upload` with `--exclude` to push only the application code, Dockerfile, and metadata to your Hugging Face Space (`ShaanNeedsHugs/farmRisk`), ignoring the large datasets.
+   - It initializes a clean, local temporary repository, deletes the `data/`, `training_data/`, and `.gitattributes` files, and force-pushes this clean snapshot directly to your Hugging Face Space repository using standard Git over HTTPS. This completely bypasses the `/api/repos/create` API check.
+
    
 3. **Mounting the Bucket on Hugging Face**:
    Configure your Hugging Face Space (which uses the `Dockerfile`) to mount your external storage bucket (holding the data parquets) to the container path `/code/data/`. This way, the FastAPI app can read the datasets at startup and runtime seamlessly.
