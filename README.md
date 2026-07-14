@@ -125,3 +125,27 @@ data/
     ├── training_tmax_daily.parquet
     └── training_tmin_daily.parquet
 ```
+
+---
+
+## Hugging Face Deployment & Syncing
+
+Since Hugging Face Spaces have lower LFS limits and you expose this `data/` folder via a mounted storage bucket, we do **not** push the `data/` folder to the Hugging Face Space Git repository.
+
+Instead, we use a GitHub Actions workflow that automatically syncs code modifications to the Hugging Face Space while excluding the `data/` folder entirely.
+
+### Setup Steps for Hugging Face Sync:
+
+1. **Configure GitHub Secrets**:
+   Go to your GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions** and add a repository secret:
+   - **Name**: `HF_TOKEN`
+   - **Value**: Your Hugging Face Write Token (generated under Hugging Face **Settings** -> **Access Tokens**).
+
+2. **How the Sync Workflow Works**:
+   - The workflow ([.github/workflows/sync_to_hf.yml](file:///.github/workflows/sync_to_hf.yml)) runs on every push to the `main` branch.
+   - It performs a standard Git checkout **without** fetching Git LFS files (saving runner bandwidth and time).
+   - It uses `hf upload` with `--exclude` to push only the application code, Dockerfile, and metadata to your Hugging Face Space (`ShaanNeedsHugs/farmRisk`), ignoring the large datasets.
+   
+3. **Mounting the Bucket on Hugging Face**:
+   Configure your Hugging Face Space (which uses the `Dockerfile`) to mount your external storage bucket (holding the data parquets) to the container path `/code/data/`. This way, the FastAPI app can read the datasets at startup and runtime seamlessly.
+

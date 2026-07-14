@@ -20,17 +20,17 @@ jobs:
           python-version: '3.12'
 
       - name: Install Hugging Face Hub CLI
-        run: pip install -U huggingface_hub
+        run: pip install -U "huggingface_hub[cli]"
 
       - name: Sync to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Replace <HF_USERNAME>/<HF_SPACE_NAME> with your actual Hugging Face Space repo ID
-          # e.g., huggingface-cli upload prakharsingh/farmrisk-model . --repo-type=space ...
-          # https://huggingface.co/spaces/ShaanNeedsHugs/farmRisk
-          huggingface-cli upload \
+          # Use the new hf command to upload to the Hugging Face Space
+          hf upload \
             ShaanNeedsHugs/farmRisk \
             . \
-            --repo-type=space \
-            --ignore-patterns "data/*" "training_data/*" ".git/*" ".github/*" ".venv/*" "*.pyc" "__pycache__/*"
+            . \
+            --repo-type space \
+            --exclude "data/*" "training_data/*" ".git/*" ".github/*" ".venv/*" "*.pyc" "__pycache__/*"
+
