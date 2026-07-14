@@ -32,5 +32,12 @@ jobs:
             . \
             . \
             --repo-type space \
-            --exclude "data/*" "training_data/*" ".git/*" ".github/*" ".venv/*" "*.pyc" "__pycache__/*"
+            --exclude "data/*" \
+            --exclude "training_data/*" \
+            --exclude ".git/*" \
+            --exclude ".github/*" \
+            --exclude ".venv/*" \
+            --exclude "*.pyc" \
+            --exclude "__pycache__/*"
+
 
