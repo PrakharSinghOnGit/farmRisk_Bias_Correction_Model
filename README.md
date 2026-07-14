@@ -11,7 +11,10 @@ short_description: FarmRisk forecast model
 
 # Hydrology & Weather Forecast API Server
 
+[![Hugging Face Space](https://img.shields.github.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-blue)](https://huggingface.co/spaces/ShaanNeedsHugs/farmRisk)
+
 This Hugging Face Space hosts a FastAPI server exposing CPC soil moisture simulation and IDW XGBoost bias-corrected weather forecast pipelines.
+
 
 ## API Documentation
 

@@ -2,7 +2,7 @@ import os
 import sys
 import json
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, HTMLResponse
 
 # Add current workspace directory to sys.path if not present
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,6 +16,24 @@ app = FastAPI(
     description="API endpoints for Soil Moisture and Weather Forecast models.",
     version="1.0.0"
 )
+
+
+@app.get("/", summary="API Portal Dashboard", response_class=HTMLResponse)
+def get_dashboard():
+    """
+    Serves a beautiful, interactive developer portal / API explorer dashboard.
+    """
+    html_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    try:
+        with open(html_file, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except Exception as e:
+        return HTMLResponse(
+            content=f"<h1>Error loading dashboard</h1><p>{str(e)}</p>",
+            status_code=500
+        )
+
 
 
 @app.get("/moisture", summary="Get Soil Moisture Data")

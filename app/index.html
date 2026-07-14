@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>FarmRisk API Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏆</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(17, 24, 39, 0.6);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #10b981;
+      --primary-glow: rgba(16, 185, 129, 0.15);
+      --secondary: #6366f1;
+      --secondary-glow: rgba(99, 102, 241, 0.15);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --code-bg: #090d16;
+      --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
+      background-attachment: fixed;
+    }
+
+    header {
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(3, 7, 18, 0.7);
+    }
+
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.25rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      font-size: 1.75rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 30%, var(--text-muted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.375rem 0.875rem;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: var(--primary);
+      transition: all 0.3s ease;
+    }
+
+    .status-badge.unhealthy {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 968px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      transition: all 0.2s ease;
+    }
+
+    .nav-link:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .tab-container {
+      display: flex;
+      border-bottom: 1px solid var(--card-border);
+      gap: 1.5rem;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding-bottom: 0.75rem;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    input, select {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-glow);
+    }
+
+    .btn-submit {
+      background: var(--primary);
+      color: #030712;
+      border: none;
+      border-radius: 8px;
+      padding: 0.875rem;
+      font-weight: 700;
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 12px var(--primary-glow);
+      transition: all 0.2s ease;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px var(--primary-glow);
+      filter: brightness(1.1);
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    .response-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .badge-method {
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--primary);
+      border: 1px solid var(--primary-glow);
+    }
+
+    .response-pane {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      flex-grow: 1;
+      min-height: 400px;
+      max-height: 600px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      position: relative;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 0.375rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .loading-spinner {
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .stat-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 0.25rem;
+    }
+
+    .stat-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <div class="logo-group">
+        <span class="logo-icon">🏆</span>
+        <span class="logo-text">FarmRisk API</span>
+      </div>
+      <div id="health-status" class="status-badge">
+        <span class="status-dot"></span>
+        <span id="health-text">Checking API...</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Explorer Panel -->
+    <div class="panel">
+      <div>
+        <h2 style="margin-bottom: 0.5rem;">API Explorer</h2>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Test the Hydrology and Weather prediction endpoints in real-time.
+        </p>
+        <div class="nav-links">
+          <a href="/docs" target="_blank" class="nav-link">Interactive Swagger Docs ↗</a>
+          <a href="/redoc" target="_blank" class="nav-link">ReDoc ↗</a>
+        </div>
+      </div>
+
+      <div class="tab-container">
+        <button id="tab-moisture" class="tab-btn active" onclick="switchTab('moisture')">Soil Moisture</button>
+        <button id="tab-forecast" class="tab-btn" onclick="switchTab('forecast')">Weather Forecast</button>
+        <button id="tab-stats" class="tab-btn" onclick="switchTab('stats')">Service Stats</button>
+      </div>
+
+      <!-- Tab Content: Soil Moisture -->
+      <form id="form-moisture" onsubmit="runRequest(event, 'moisture')" class="tab-content">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label for="moisture-lat">Latitude</label>
+          <input type="number" step="any" id="moisture-lat" value="28.6139" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label for="moisture-lon">Longitude</label>
+          <input type="number" step="any" id="moisture-lon" value="77.2090" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label for="moisture-crop">Crop (Optional)</label>
+          <select id="moisture-crop">
+            <option value="">-- No FAO-56 Kc crop scaling --</option>
+            <option value="wheat">Wheat</option>
+            <option value="maize">Maize</option>
+            <option value="rice">Rice</option>
+            <option value="sorghum">Sorghum</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label for="moisture-days">Irrigation Refill Ref: Days Before (Optional)</label>
+          <input type="number" id="moisture-days" placeholder="e.g. 7">
+        </div>
+        <button type="submit" class="btn-submit">
+          <span class="btn-text">Run CPC Simulation</span>
+        </button>
+      </form>
+
+      <!-- Tab Content: Weather Forecast -->
+      <form id="form-forecast" onsubmit="runRequest(event, 'forecast')" class="tab-content" style="display: none;">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label for="forecast-lat">Latitude</label>
+          <input type="number" step="any" id="forecast-lat" value="28.6139" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label for="forecast-lon">Longitude</label>
+          <input type="number" step="any" id="forecast-lon" value="77.2090" required>
+        </div>
+        <button type="submit" class="btn-submit" style="background-color: var(--secondary); box-shadow: 0 4px 12px var(--secondary-glow);">
+          <span class="btn-text">Get Bias-Corrected Forecast</span>
+        </button>
+      </form>
+
+      <!-- Tab Content: Service Stats -->
+      <div id="tab-stats-content" class="tab-content" style="display: none;">
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Live execution numbers and running times recorded since server launch.
+        </p>
+        
+        <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: #fff;">Soil Moisture Run Counts</h3>
+        <div class="stats-grid" style="margin-bottom: 1.5rem;">
+          <div class="stat-card">
+            <div class="stat-title">Total Count</div>
+            <div id="stat-m-count" class="stat-val">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Avg Duration</div>
+            <div id="stat-m-time" class="stat-val">0.0s</div>
+          </div>
+        </div>
+
+        <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: #fff;">Weather Forecast Run Counts</h3>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-title">Total Count</div>
+            <div id="stat-f-count" class="stat-val">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Avg Duration</div>
+            <div id="stat-f-time" class="stat-val">0.0s</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Response Panel -->
+    <div class="panel">
+      <div class="response-header">
+        <h2>JSON Response</h2>
+        <span id="method-badge" class="badge-method">GET</span>
+      </div>
+      <div class="response-pane">
+        <button class="copy-btn" onclick="copyResponse()">Copy</button>
+        <pre id="json-output">// Run an API request or click tabs to explore responses.</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activeTab = 'moisture';
+
+    // Fetch health and stats on load
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchHealth();
+      fetchStats();
+    });
+
+    async function fetchHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        const badge = document.getElementById('health-status');
+        const text = document.getElementById('health-text');
+        
+        if (data.status === 'ok') {
+          badge.className = 'status-badge';
+          text.textContent = 'API Live & Health OK';
+        } else {
+          badge.className = 'status-badge unhealthy';
+          text.textContent = 'API Unhealthy';
+        }
+      } catch (err) {
+        document.getElementById('health-status').className = 'status-badge unhealthy';
+        document.getElementById('health-text').textContent = 'API Offline';
+      }
+    }
+
+    async function fetchStats() {
+      try {
+        const res = await fetch('/stats');
+        const data = await res.json();
+        
+        document.getElementById('stat-m-count').textContent = data.soil_moisture?.count || 0;
+        document.getElementById('stat-m-time').textContent = (data.soil_moisture?.avg_time || 0).toFixed(2) + 's';
+        document.getElementById('stat-f-count').textContent = data.forecast?.count || 0;
+        document.getElementById('stat-f-time').textContent = (data.forecast?.avg_time || 0).toFixed(2) + 's';
+      } catch (err) {
+        console.error("Error loading stats:", err);
+      }
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      
+      // Update buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+
+      // Update forms
+      document.getElementById('form-moisture').style.display = tab === 'moisture' ? 'block' : 'none';
+      document.getElementById('form-forecast').style.display = tab === 'forecast' ? 'block' : 'none';
+      document.getElementById('tab-stats-content').style.display = tab === 'stats' ? 'block' : 'none';
+
+      // Update method badge
+      const badge = document.getElementById('method-badge');
+      if (tab === 'stats') {
+        badge.textContent = 'GET';
+        badge.style.backgroundColor = 'rgba(99, 102, 241, 0.15)';
+        badge.style.color = 'var(--secondary)';
+        badge.style.borderColor = 'var(--secondary-glow)';
+        fetchStats();
+      } else if (tab === 'moisture') {
+        badge.textContent = 'GET';
+        badge.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+        badge.style.color = 'var(--primary)';
+        badge.style.borderColor = 'var(--primary-glow)';
+      } else {
+        badge.textContent = 'GET';
+        badge.style.backgroundColor = 'rgba(99, 102, 241, 0.15)';
+        badge.style.color = 'var(--secondary)';
+        badge.style.borderColor = 'var(--secondary-glow)';
+      }
+    }
+
+    async function runRequest(event, type) {
+      event.preventDefault();
+      const output = document.getElementById('json-output');
+      const submitBtn = event.target.querySelector('.btn-submit');
+      const origBtnHtml = submitBtn.innerHTML;
+
+      // Set loading state
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="loading-spinner"></span> Running Pipeline...';
+      output.textContent = '// Fetching data from model pipeline... this may take a moment.';
+
+      let url = '';
+      if (type === 'moisture') {
+        const lat = document.getElementById('moisture-lat').value;
+        const lon = document.getElementById('moisture-lon').value;
+        const crop = document.getElementById('moisture-crop').value;
+        const days = document.getElementById('moisture-days').value;
+        url = `/moisture?lat=${lat}&lon=${lon}`;
+        if (crop) url += `&crop=${crop}`;
+        if (days) url += `&daysbefore=${days}`;
+      } else {
+        const lat = document.getElementById('forecast-lat').value;
+        const lon = document.getElementById('forecast-lon').value;
+        url = `/forecast?lat=${lat}&lon=${lon}`;
+      }
+
+      try {
+        const res = await fetch(url);
+        const text = await res.text();
+        try {
+          const parsed = JSON.parse(text);
+          output.textContent = JSON.stringify(parsed, null, 2);
+        } catch (e) {
+          output.textContent = text;
+        }
+      } catch (err) {
+        output.textContent = "Error: " + err.message;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origBtnHtml;
+        fetchStats(); // Update stats in background
+      }
+    }
+
+    function copyResponse() {
+      const output = document.getElementById('json-output').textContent;
+      navigator.clipboard.writeText(output).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+      });
+    }
+  </script>
+</body>
+</html>
