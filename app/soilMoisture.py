@@ -499,9 +499,9 @@ def run_soil_moisture_pipeline(
 
     # Resolve planting DOY when a crop is requested but plant_day omitted.
     if crop is not None and plant_day is None:
-        day = default_plant_day(crop, district=district, calendar_path=crop_calendar_file)
-        if day is not None:
-            plant_day = day
+        day_val, _ = default_plant_day(crop, district=district, calendar_path=crop_calendar_file)
+        if day_val is not None:
+            plant_day = day_val
         else:
             plant_day = 1
     elif plant_day is None:
