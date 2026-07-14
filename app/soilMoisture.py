@@ -593,19 +593,6 @@ def main():
     ap.add_argument("--daysbefore", type=int,
                     help="deficit-refill irrigation this many days before "
                          "end of record")
-    args = ap.parse_args()
-
-    res_json = run_soil_moisture_pipeline(
-        village_id=args.village_id,
-        limit=args.limit,
-        lat=args.lat,
-        lon=args.lon,
-        crop=args.crop,
-        plant_day=args.plant_day,
-        district=args.district,
-        daysbefore=args.daysbefore,
-        save_csv=True,
-    )
 
 
 if __name__ == "__main__":

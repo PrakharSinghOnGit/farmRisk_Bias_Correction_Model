@@ -1,4 +1,5 @@
 import os
+import string
 import sys
 import json
 from fastapi import FastAPI, HTTPException, Query
@@ -22,6 +23,7 @@ app = FastAPI(
 def get_moisture(
     lat: float = Query(..., description="Latitude of the location"),
     lon: float = Query(..., description="Longitude of the location"),
+    crop: string = Query(None, description="Crop type for FAO-56 Kc application"),
     daysbefore: int = Query(None, description="Days before for irrigation refill (optional)")
 ):
     """
@@ -32,6 +34,7 @@ def get_moisture(
         res_json = run_soil_moisture_pipeline(
             lat=lat,
             lon=lon,
+            crop=crop,
             daysbefore=daysbefore,
             save_csv=False
         )
